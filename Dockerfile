@@ -35,9 +35,14 @@ RUN sed -i 's/CV_GRAY2RGB/cv::COLOR_GRAY2RGB/g' $WORKSPACE/src/isro_rovio/rovio/
 RUN sed -i 's/${catkin_LIBRARIES}/${catkin_LIBRARIES} GLEW GL/g' $WORKSPACE/src/isro_rovio/rovio/CMakeLists.txt
 RUN sed -i 's/set(ROVIO_CHECK_JACOBIANS 1)/set(ROVIO_CHECK_JACOBIANS 0)/g' $WORKSPACE/src/isro_rovio/rovio/CMakeLists.txt
 
+RUN apt-get update && apt-get install -y ros-noetic-mavros ros-noetic-mavros-extras && \
+    wget https://raw.githubusercontent.com/mavlink/mavros/master/mavros/scripts/install_geographiclib_datasets.sh && \
+    bash ./install_geographiclib_datasets.sh && \
+    rm ./install_geographiclib_datasets.sh
+
 # Build the workspace
 RUN cd $WORKSPACE && \
-    catkin build rovio kindr -j6 --cmake-args -DCMAKE_BUILD_TYPE=Release -DMAKE_SCENE=ON
+    catkin build rovio kindr rovio_tools -j6 --cmake-args -DCMAKE_BUILD_TYPE=Release -DMAKE_SCENE=ON
 
 RUN echo "source /opt/ros/noetic/setup.bash" >> ~/.bashrc && \
     echo "source $WORKSPACE/devel/setup.bash" >> ~/.bashrc
