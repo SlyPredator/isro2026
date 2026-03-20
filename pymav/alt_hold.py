@@ -5,7 +5,7 @@ import signal
 import threading
 
 #connection_string = 'COM15'
-connection_string = 'COM12'  # Replace with your port
+connection_string = 'COM6'  # Replace with your port
 baud_rate = 57600
 
 rangefinder_distance = 0.0
@@ -58,8 +58,19 @@ def set_mode(mode):
     print(f"Mode set to {mode}")
     time.sleep(2)
 
+def clear_rc_override():
+    """Release RC override so autopilot has full control"""
+    master.mav.rc_channels_override_send(
+        master.target_system, master.target_component,
+        0, 0, 0, 0,  # 0 = release override on all channels
+        0, 0, 0, 0
+    )
+    time.sleep(0.1)
+
 def land_drone():
     print("Landing initiated...")
+    clear_rc_override()        # ← Release throttle override first
+    time.sleep(0.3)            # ← Brief pause to let autopilot resume control
     set_mode("LAND")
 
 def disarm_drone():
@@ -77,18 +88,18 @@ def send_rc_override(throttle_pwm):
 def takeoff():
     print("Taking off...")
     count = 1
-    for pwm in range(1200, 1650, 10):
+    for pwm in range(1400, 1850, 10):
         curr_alt = rangefinder_distance  # Real-time updated altitude
         print(f"Current Altitude: {curr_alt:.2f}m")
         
-        if curr_alt > 0.3:
+        if curr_alt > 0.35:
             pwm -= 10 * count
             count += 1
-        if curr_alt >= 1.6:
-            set_mode("ALT_HOLD")
-            send_rc_override(1510)
+        if curr_alt >= 0.4:
+            set_mode("FLOWHOLD")
+            send_rc_override(1550)
             break
-        if get_mode() != 'STABILIZE':
+        if get_mode() != 'FLOWHOLD':
             set_mode("LAND")
             break
         if keyboard.is_pressed("l"):
@@ -108,7 +119,7 @@ keyboard.add_hotkey("l", land_drone)
 keyboard.add_hotkey("q", disarm_drone)
 signal.signal(signal.SIGINT, lambda sig, frame: emergency_shutdown())
 
-set_mode("STABILIZE")
+set_mode("FLOWHOLD")
 
 print("Disabling safety switch...")
 master.mav.command_long_send(
@@ -125,10 +136,11 @@ master.motors_armed_wait()
 print("Motors armed.")
 
 takeoff()
-time.sleep(60)
-
-print("Landing...")
-set_mode("LAND")
+# if rangefinder_distance >= 1.2:
+#             set_mode("FLOWHOLD")
+#             send_rc_override(1550)
+time.sleep(300)
+land_drone()
 time.sleep(30)
 
 print("Disarming...")
